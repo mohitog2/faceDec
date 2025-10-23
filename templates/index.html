@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Emotion</title>
+    <style>
+            body {
+        font-family: Arial, sans-serif;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin: 0;
+        padding: 20px;
+        background: #f0f0f0;
+        }
+        video {
+        border: 2px solid #333;
+        border-radius: 8px;
+        width: 360px;
+        height: 300px;
+        background: black;
+        }
+        .images {
+        display: flex;
+        margin-top: 20px;
+        gap: 10px;
+        flex-wrap: wrap;
+        justify-content: center;
+        }
+        .images img {
+        width: 150px;
+        height: 150px;
+        object-fit: cover;
+        border-radius: 8px;
+        border: 2px solid #333;
+        }
+    </style>
+</head>
+<body>
+
+        <h1>Real-time Mood Detector</h1>
+
+        <video id="webcam" autoplay muted></video>
+
+    <div class="images" id="image-box">
+
+    </div>
+
+    <script>
+        const video = document.getElementById('webcam');
+
+        navigator.mediaDevices.getUserMedia({video: true})
+
+        .then(stream => {
+            video.srcObject = stream;
+        })
+            .catch(err => {
+                console.error("Error accessing webcam: ", err);
+            })
+
+            const exampleEmotion = {
+                happy : [
+                    'https://th.bing.com/th/id/OIP.b1k2rrW5wGek6O6_gWEtoAHaHZ?w=183&h=182&c=7&r=0&o=7&cb=12&dpr=1.3&pid=1.7&rm=3.jpg'
+                    ],
+
+                sad : [
+                    'https://media.stickerswiki.app/cryingcatdeluxe/1592368.512.webp'
+                ],
+
+                angry : [
+                    'https://i.pinimg.com/736x/e7/40/03/e7400321d9d52fe28b88a1fc91b4bcc7.jpg'
+                ],
+
+                neutral : [
+                    'https://th.bing.com/th/id/OIP.JFU_67aUxz54H0RONq1BZAHaHB?w=179&h=180&c=7&r=0&o=7&cb=12&dpr=1.3&pid=1.7&rm=3.jpg'
+                ]
+            }
+
+            let lastEmotion = "";
+
+            function updateEmotion(emotion) {
+                if(emotion === lastEmotion) return;
+                lastEmotion = emotion; 
+
+                const container = document.getElementById('image-box');
+                container.innerHTML = "";
+
+                if (exampleEmotion[emotion]) {
+                    exampleEmotion[emotion].forEach(url => {
+                        const img = document.createElement('img');
+                        img.src = url;
+                        container.appendChild(img);
+                    });
+                }
+            }
+
+            const demoEmotions = ['happy', 'sad', 'angry', 'neutral'];
+            let i = 0;
+                setInterval(() => {
+                    updateEmotion(demoEmotions[i]);
+                    i = (i + 1) % demoEmotions.length;
+                }, 3000);
+
+                const canvas = document.createElement('canvas');
+                    const context = canvas.getContext('2d');
+
+                    function sendFrame() {
+                        canvas.width = video.videoWidth;
+                        canvas.height = video.videoHeight;
+                        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                        const dataURL = canvas.toDataURL('image/jpeg');
+
+                        fetch('/detect', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ image: dataURL })
+                        })
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.emotion) {
+                                    updateEmotion(data.emotion);
+                                }
+                            })
+                            .catch(err => console.error(err));
+                    }
+
+                    // Send a frame every 1 second (adjust as needed)
+                    setInterval(sendFrame, 1000);
+
+
+    </script>
+</body>
+</html>
