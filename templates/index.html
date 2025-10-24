@@ -72,7 +72,7 @@ window.evtSource.onmessage = function(event) {
     lastEmotion = emotion;
     console.log("Detected emotion:", emotion);
 
-    fetch(`/get_image/${emotion_image}`)
+    fetch(`/get_image/${emotion_images}`)
       .then(res => res.json())
       .then(data => {
         if (data.url && emotionImage.src !== data.url) {
