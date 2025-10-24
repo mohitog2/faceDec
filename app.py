@@ -3,9 +3,13 @@ from fer import FER
 import cv2
 import numpy as np
 import base64
+import os
 
 app = Flask(__name__)
 detector = FER(mtcnn=True)
+
+app = Flask(__name__, template_folder=os.path.join(os.path.dirname(__file__), 'templates'))
+
 
 @app.route('/')
 def index():
