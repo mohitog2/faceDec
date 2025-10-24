@@ -48,85 +48,40 @@
     </div>
 
     <script>
-        const video = document.getElementById('webcam');
+       const video = document.getElementById("camera");
+const emotionImage = document.getElementById("emotionImage");
 
-        navigator.mediaDevices.getUserMedia({video: true})
+navigator.mediaDevices.getUserMedia({ video: true })
+  .then(stream => {
+    video.srcObject = stream;
+  })
+  .catch(err => console.error("Camera error:", err));
 
-        .then(stream => {
-            video.srcObject = stream;
-        })
-            .catch(err => {
-                console.error("Error accessing webcam: ", err);
-            })
+// Only create ONE connection
+if (!window.evtSource) {
+  window.evtSource = new EventSource("/video");
+}
 
-            const exampleEmotion = {
-                happy : [
-                    'https://th.bing.com/th/id/OIP.b1k2rrW5wGek6O6_gWEtoAHaHZ?w=183&h=182&c=7&r=0&o=7&cb=12&dpr=1.3&pid=1.7&rm=3.jpg'
-                    ],
+let lastEmotion = null;
 
-                sad : [
-                    'https://media.stickerswiki.app/cryingcatdeluxe/1592368.512.webp'
-                ],
+window.evtSource.onmessage = function(event) {
+  const emotion = event.data.trim();
 
-                angry : [
-                    'https://i.pinimg.com/736x/e7/40/03/e7400321d9d52fe28b88a1fc91b4bcc7.jpg'
-                ],
+  // Only update if emotion actually changes
+  if (emotion && emotion !== lastEmotion) {
+    lastEmotion = emotion;
+    console.log("Detected emotion:", emotion);
 
-                neutral : [
-                    'https://th.bing.com/th/id/OIP.JFU_67aUxz54H0RONq1BZAHaHB?w=179&h=180&c=7&r=0&o=7&cb=12&dpr=1.3&pid=1.7&rm=3.jpg'
-                ]
-            }
+    fetch(`/get_image/${emotion}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.url && emotionImage.src !== data.url) {
+          emotionImage.src = data.url;
+        }
+      });
+  }
+};
 
-            let lastEmotion = "";
-
-            function updateEmotion(emotion) {
-                if(emotion === lastEmotion) return;
-                lastEmotion = emotion; 
-
-                const container = document.getElementById('image-box');
-                container.innerHTML = "";
-
-                if (exampleEmotion[emotion]) {
-                    exampleEmotion[emotion].forEach(url => {
-                        const img = document.createElement('img');
-                        img.src = url;
-                        container.appendChild(img);
-                    });
-                }
-            }
-
-            const demoEmotions = ['happy', 'sad', 'angry', 'neutral'];
-            let i = 0;
-                setInterval(() => {
-                    updateEmotion(demoEmotions[i]);
-                    i = (i + 1) % demoEmotions.length;
-                }, 3000);
-
-                const canvas = document.createElement('canvas');
-                    const context = canvas.getContext('2d');
-
-                    function sendFrame() {
-                        canvas.width = video.videoWidth;
-                        canvas.height = video.videoHeight;
-                        context.drawImage(video, 0, 0, canvas.width, canvas.height);
-                        const dataURL = canvas.toDataURL('image/jpeg');
-
-                        fetch('/detect', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ image: dataURL })
-                        })
-                            .then(response => response.json())
-                            .then(data => {
-                                if (data.emotion) {
-                                    updateEmotion(data.emotion);
-                                }
-                            })
-                            .catch(err => console.error(err));
-                    }
-
-                    // Send a frame every 1 second (adjust as needed)
-                    setInterval(sendFrame, 1000);
 
 
     </script>
