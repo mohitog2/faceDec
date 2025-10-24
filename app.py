@@ -1,42 +1,59 @@
-from flask import Flask, render_template, request, jsonify
-from fer import FER
+from flask import Flask, render_template, Response, jsonify
 import cv2
-import numpy as np
-import base64
-import os
+from fer import FER
+from collections import deque
 
 app = Flask(__name__)
+
+# Initialize the FER detector and camera
 detector = FER(mtcnn=True)
+camera = cv2.VideoCapture(0)
 
-app = Flask(__name__, template_folder=os.path.join(os.path.dirname(__file__), 'templates'))
+# To track emotion stability
+prev_emotion = None
+emotion_history = deque(maxlen=5)
 
+# Mapping emotions to image URLs
+emotion_images = {
+    "happy": "https://th.bing.com/th/id/OIP.b1k2rrW5wGek6O6_gWEtoAHaHZ?w=183&h=182&c=7&r=0&o=7&cb=12&dpr=1.3&pid=1.7&rm=3.jpg",
+    "sad": "https://media.stickerswiki.app/cryingcatdeluxe/1592368.512.webp",
+    "angry": "https://i.pinimg.com/736x/e7/40/03/e7400321d9d52fe28b88a1fc91b4bcc7.jpg",
+    "neutral": "https://th.bing.com/th/id/OIP.JFU_67aUxz54H0RONq1BZAHaHB?w=179&h=180&c=7&r=0&o=7&cb=12&dpr=1.3&pid=1.7&rm=3.jpg"
+}
+
+def gen_frames():
+    global prev_emotion
+
+    while True:
+        success, frame = camera.read()
+        if not success:
+            break
+
+        # Detect top emotion
+        result = detector.top_emotion(frame)
+        if result:
+            emotion, score = result
+            emotion_history.append(emotion)
+
+            # Check if emotion is stable (same for last 3 frames)
+            if len(emotion_history) == 5 and len(set(list(emotion_history)[-3:])) == 1:
+                stable_emotion = emotion_history[-1]
+                if stable_emotion != prev_emotion:
+                    prev_emotion = stable_emotion
+                    yield f"data:{stable_emotion}\n\n"
 
 @app.route('/')
 def index():
-    return render_template('index.html')  # your HTML file
+    return render_template('index.html')
 
-@app.route('/detect', methods=['POST'])
-def detect():
-    try:
-        # Get base64 image from frontend
-        data = request.json['image'].split(',')[1]
-        img_bytes = base64.b64decode(data)
-        
-        # Convert bytes to numpy array
-        nparr = np.frombuffer(img_bytes, np.uint8)
-        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+@app.route('/video')
+def video():
+    return Response(gen_frames(), mimetype='text/event-stream')
 
-        # Detect emotions
-        result = detector.detect_emotions(img)
-        emotion = "neutral"
-        if result:
-            emotions = result[0]["emotions"]
-            emotion = max(emotions, key=emotions.get)
-        
-        return jsonify({"emotion": emotion})
-    
-    except Exception as e:
-        return jsonify({"error": str(e)})
+@app.route('/get_image/<emotion>')
+def get_image(emotion):
+    url = emotion_images.get(emotion, emotion_images["neutral"])
+    return jsonify({"url": url})
 
 if __name__ == '__main__':
     app.run(debug=True)
