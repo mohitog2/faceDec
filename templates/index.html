@@ -48,38 +48,26 @@
     </div>
 
     <script>
-       const video = document.getElementById("camera");
-const emotionImage = document.getElementById("emotionImage");
-
-navigator.mediaDevices.getUserMedia({ video: true })
-  .then(stream => {
-    video.srcObject = stream;
-  })
-  .catch(err => console.error("Camera error:", err));
-
-// Only create ONE connection
-if (!window.evtSource) {
-  window.evtSource = new EventSource("/video");
-}
-
+     const emotionImage = document.getElementById("emotionImage");
 let lastEmotion = null;
 
-window.evtSource.onmessage = function(event) {
+const evtSource = new EventSource("/video");
+
+evtSource.onmessage = function(event) {
   const emotion = event.data.trim();
 
-  // Only update if emotion actually changes
-  if (emotion && emotion !== lastEmotion) {
-    lastEmotion = emotion;
-    console.log("Detected emotion:", emotion);
+  if (!emotion || emotion === lastEmotion) return;
 
-    fetch(`/get_image/${emotion}`)
-      .then(res => res.json())
-      .then(data => {
-        if (data.url && emotionImage.src !== data.url) {
-          emotionImage.src = data.url;
-        }
-      });
-  }
+  lastEmotion = emotion;
+
+  fetch(`/get_image/${emotion}`)
+    .then(res => res.json())
+    .then(data => {
+      if (data.url) {
+        emotionImage.src = data.url; // Update image
+      }
+    })
+    .catch(err => console.error("Error fetching image:", err));
 };
 
 
